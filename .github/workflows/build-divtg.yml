@@ -2,25 +2,47 @@ name: Build DivTG (Windows x64)
 
 on:
   push:
-    branches: [ main, dev ]
-    tags: [ 'v*' ]
-  pull_request:
     branches: [ main ]
+    tags: [ 'v*' ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  build-windows:
     name: Build DivTG Windows x64
-    runs-on: windows-2022
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: cmd
+
+    env:
+      PREPARE_PATH: "Telegram/build/prepare/prepare.py"
 
     steps:
+      - name: Prepare build directory structure
+        run: |
+          mkdir "%userprofile%\TBuild\Libraries\win64"
+          mkdir "%userprofile%\TBuild\ThirdParty"
+          mklink /d "%GITHUB_WORKSPACE%\TBuild" "%userprofile%\TBuild"
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+
+      - name: Get repository name
+        shell: bash
+        run: |
+          echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 1
+          path: ${{ env.TBUILD }}/${{ env.REPO_NAME }}
 
-      - name: Setup MSVC Developer Environment
+      - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
@@ -36,46 +58,87 @@ jobs:
 
       - name: Generate DivTG Icons
         run: |
-          python scripts/generate_icons.py
+          cd %TBUILD%\%REPO_NAME%
+          python scripts\generate_icons.py
 
-      - name: Cache CMake & Dependencies
+      - name: Calculate cache keys
+        shell: bash
+        run: |
+          echo "$(sha256sum $TBUILD/$REPO_NAME/$PREPARE_PATH | awk '{ print $1 }')" >> CACHE_KEY.txt
+          echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
+
+      - name: ThirdParty Cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: ${{ runner.OS }}-x64-third-party-${{ env.CACHE_KEY }}
+          restore-keys: ${{ runner.OS }}-x64-third-party-
+
+      - name: Libraries Cache
         uses: actions/cache@v4
         with:
           path: |
-            out/build
-            ~/.cmake
-          key: ${{ runner.os }}-divtg-${{ hashFiles('Telegram/CMakeLists.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-divtg-
+            ${{ env.LibrariesPath }}\*
+            !${{ env.LibrariesPath }}\[qQ]t[_-]*
+          key: ${{ runner.OS }}-x64-libs-${{ env.CACHE_KEY }}
+          restore-keys: ${{ runner.OS }}-x64-libs-
 
-      - name: Configure CMake
+      - name: Qt Cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.LibrariesPath }}\[qQ]t[_-]*
+          key: ${{ runner.OS }}-x64-qt6-${{ env.CACHE_KEY }}
+          restore-keys: ${{ runner.OS }}-x64-qt6-
+
+      - name: Prepare Libraries & Dependencies
         run: |
-          cmake -B out -S . -G "Visual Studio 17 2022" -A x64 `
-            -DTDESKTOP_API_ID=17349 `
-            -DTDESKTOP_API_HASH=344583e45741c457fe1862106095a5eb
+          call %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat skip-release silent qt6
 
-      - name: Build DivTG
+      - name: Configure CMake & Project
         run: |
-          cmake --build out --config Release --target Telegram --parallel
+          cd %TBUILD%\%REPO_NAME%\Telegram
+          call configure.bat x64 qt6 ^
+            -D TDESKTOP_API_ID=17349 ^
+            -D TDESKTOP_API_HASH=344583e45741c457fe1862106095a5eb ^
+            -D CMAKE_CONFIGURATION_TYPES=Debug ^
+            -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON
 
-      - name: Package Release
+      - name: Build DivTG Target
         run: |
-          mkdir -p package/DivTG
-          cp out/Release/DivTG.exe package/DivTG/ 2>$null || cp out/bin/DivTG.exe package/DivTG/ 2>$null || cp out/DivTG.exe package/DivTG/
-          cp README_DIVTG.md package/DivTG/ 2>$null || true
-          Compress-Archive -Path package/DivTG/* -DestinationPath package/DivTG-Windows-x64.zip
+          cd %TBUILD%\%REPO_NAME%
+          cmake --build out --config Debug --target Telegram --parallel
 
-      - name: Upload Build Artifacts
+      - name: Locate and Package Executable
+        shell: bash
+        run: |
+          mkdir -p artifact
+          OUT_DIR="$TBUILD/$REPO_NAME/out/Debug"
+          
+          # Check for DivTG.exe or Telegram.exe
+          if [ -f "$OUT_DIR/DivTG.exe" ]; then
+            cp "$OUT_DIR/DivTG.exe" artifact/DivTG.exe
+          elif [ -f "$OUT_DIR/Telegram.exe" ]; then
+            cp "$OUT_DIR/Telegram.exe" artifact/DivTG.exe
+          fi
+          
+          cp "$TBUILD/$REPO_NAME/README_DIVTG.md" artifact/ 2>/dev/null || true
+          
+          cd artifact
+          powershell Compress-Archive -Path * -DestinationPath ../DivTG-Windows-x64.zip
+          cd ..
+
+      - name: Upload DivTG Artifact
         uses: actions/upload-artifact@v4
         with:
           name: DivTG-Windows-x64
-          path: package/DivTG-Windows-x64.zip
+          path: DivTG-Windows-x64.zip
+          retention-days: 7
 
       - name: Publish GitHub Release (on tag)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: package/DivTG-Windows-x64.zip
+          files: DivTG-Windows-x64.zip
           draft: false
           prerelease: false
           generate_release_notes: true
