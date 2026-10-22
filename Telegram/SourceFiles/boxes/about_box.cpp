@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/update_channel.h"
 #include "core/update_checker.h"
 #include "core/version.h"
+#include "divtg/divtg_config.h"
 #include "lang/lang_keys.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/painter.h"
@@ -65,7 +66,7 @@ rpl::producer<TextWithEntities> Text3() {
 } // namespace
 
 void AboutBox(not_null<Ui::GenericBox*> box) {
-	box->setTitle(u"Telegram Desktop"_q);
+	box->setTitle(u"DivTG Desktop"_q);
 
 	auto layout = box->verticalLayout();
 
@@ -153,7 +154,7 @@ QString telegramFaqLink() {
 namespace {
 
 [[nodiscard]] QString CurrentVersionText(bool withCommit) {
-	auto result = QString::fromLatin1(AppVersionStr);
+	auto result = QString::fromLatin1(AppVersionStr) + u" (DivTG %1)"_q.arg(DivTG::ModVersion);
 	if (Core::BuildIsCanary) {
 		result += Core::CanaryVersionSuffix();
 	} else if (cAlphaVersion()) {

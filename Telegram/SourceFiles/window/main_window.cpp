@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/main_window.h"
+#include "divtg/divtg_settings.h"
 
 #include "api/api_updates.h"
 #include "storage/localstorage.h"
@@ -658,7 +659,17 @@ void MainWindow::updatePalette() {
 	Ui::ForceFullRepaint(this);
 
 	auto p = palette();
+#ifdef Q_OS_WIN
+	if (DivTG::ModSettings().acrylicEnabled()) {
+		auto bg = st::windowBg->c;
+		bg.setAlphaF(DivTG::ModSettings().windowOpacity());
+		p.setColor(QPalette::Window, bg);
+	} else {
+		p.setColor(QPalette::Window, st::windowBg->c);
+	}
+#else
 	p.setColor(QPalette::Window, st::windowBg->c);
+#endif
 	setPalette(p);
 }
 

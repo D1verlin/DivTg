@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/ui_utility.h"
 #include "window/themes/window_theme.h"
 #include "window/window_controller.h"
+#include "divtg/acrylic_manager.h"
 #include "history/history.h"
 
 #include <QtWidgets/QStyleFactory>
@@ -687,6 +688,8 @@ void MainWindow::initHook() {
 	validateWindowTheme(
 		Core::App().settings().nativeWindowFrame(),
 		Window::Theme::IsNightMode());
+
+	DivTG::Acrylic().attachToWindow(_hWnd, this);
 }
 
 void MainWindow::validateWindowTheme(bool native, bool night) {

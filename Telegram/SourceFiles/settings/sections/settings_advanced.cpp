@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/sections/settings_advanced.h"
+#include "divtg/acrylic_manager.h"
+#include "divtg/divtg_settings.h"
 
 #include "settings/settings_common_session.h"
 
@@ -385,6 +387,22 @@ void BuildWindowTitleSection(SectionBuilder &builder) {
 			.checked = settings->nativeWindowFrame(),
 			.keywords = { u"frame"_q, u"native"_q, u"window"_q, u"border"_q },
 		});
+#ifdef Q_OS_WIN
+		if (DivTG::Acrylic().isSupported()) {
+			const auto acrylic = builder.addCheckbox({
+				.id = u"divtg/acrylic_enabled"_q,
+				.title = rpl::single(u"DivTG: Windows Acrylic / Mica transparency"_q),
+				.checked = DivTG::ModSettings().acrylicEnabled(),
+				.keywords = { u"acrylic"_q, u"mica"_q, u"transparency"_q, u"blur"_q, u"divtg"_q },
+			});
+			if (acrylic) {
+				acrylic->checkedChanges(
+				) | rpl::on_next([=](bool checked) {
+					DivTG::ModSettings().setAcrylicEnabled(checked);
+				}, acrylic->lifetime());
+			}
+		}
+#endif
 		if (nativeFrame) {
 			nativeFrame->checkedChanges(
 			) | rpl::filter([](bool checked) {

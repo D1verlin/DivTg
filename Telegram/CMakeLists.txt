@@ -1860,6 +1860,13 @@ PRIVATE
     platform/win/windows_taskbar_buttons.h
     platform/win/windows_toast_activator.cpp
     platform/win/windows_toast_activator.h
+    divtg/divtg_config.h
+    divtg/divtg_settings.h
+    divtg/divtg_settings.cpp
+    divtg/acrylic_manager.h
+    divtg/acrylic_manager.cpp
+    divtg/github_updater.h
+    divtg/github_updater.cpp
     platform/platform_file_utilities.cpp
     platform/platform_file_utilities.h
     platform/platform_launcher.h
@@ -2690,7 +2697,7 @@ else()
         set(bundle_identifier "com.tdesktop.Telegram")
     endif()
     set(bundle_entitlements "Telegram.entitlements")
-    set(output_name "Telegram")
+    set(output_name "DivTG")
 endif()
 
 if (CMAKE_GENERATOR STREQUAL Xcode)

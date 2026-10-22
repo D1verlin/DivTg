@@ -1,0 +1,83 @@
+name: Build DivTG (Windows x64)
+
+on:
+  push:
+    branches: [ main, dev ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build DivTG Windows x64
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Setup MSVC Developer Environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install Pillow
+
+      - name: Generate DivTG Icons
+        run: |
+          python scripts/generate_icons.py
+
+      - name: Cache CMake & Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            out/build
+            ~/.cmake
+          key: ${{ runner.os }}-divtg-${{ hashFiles('Telegram/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-divtg-
+
+      - name: Configure CMake
+        run: |
+          cmake -B out -S . -G "Visual Studio 17 2022" -A x64 `
+            -DTDESKTOP_API_ID=17349 `
+            -DTDESKTOP_API_HASH=344583e45741c457fe1862106095a5eb
+
+      - name: Build DivTG
+        run: |
+          cmake --build out --config Release --target Telegram --parallel
+
+      - name: Package Release
+        run: |
+          mkdir -p package/DivTG
+          cp out/Release/DivTG.exe package/DivTG/ 2>$null || cp out/bin/DivTG.exe package/DivTG/ 2>$null || cp out/DivTG.exe package/DivTG/
+          cp README_DIVTG.md package/DivTG/ 2>$null || true
+          Compress-Archive -Path package/DivTG/* -DestinationPath package/DivTG-Windows-x64.zip
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DivTG-Windows-x64
+          path: package/DivTG-Windows-x64.zip
+
+      - name: Publish GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: package/DivTG-Windows-x64.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1496,7 +1496,7 @@ FlatpakLoader::~FlatpakLoader() {
 } // namespace
 
 bool UpdaterDisabled() {
-	return UpdaterIsDisabled;
+	return true; // DivTG: official auto-updater disabled to protect mod files
 }
 
 void SetUpdaterDisabledAtStartup() {
