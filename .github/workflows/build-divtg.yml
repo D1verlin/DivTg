@@ -68,14 +68,14 @@ jobs:
           echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
 
       - name: ThirdParty Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.TBUILD }}\ThirdParty
           key: ${{ runner.OS }}-x64-third-party-${{ env.CACHE_KEY }}
           restore-keys: ${{ runner.OS }}-x64-third-party-
 
       - name: Libraries Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ${{ env.LibrariesPath }}\*
@@ -84,7 +84,7 @@ jobs:
           restore-keys: ${{ runner.OS }}-x64-libs-
 
       - name: Qt Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.LibrariesPath }}\[qQ]t[_-]*
           key: ${{ runner.OS }}-x64-qt6-${{ env.CACHE_KEY }}
